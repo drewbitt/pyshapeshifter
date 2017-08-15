@@ -2,6 +2,54 @@
 Would be great to look into using native HTML scraping/parsing for this, or Javascript'''
 
 import sys
+from html.parser import HTMLParser
+
+# using HTMLParser for parsing shapes
+
+class MyHTMLParser(HTMLParser):
+	def __init__(self):
+		HTMLParser.__init__(self)
+		# the max size of a shape is 4x5 so a [4][5] array
+		self.size = [[0,0,0,0,0], [0,0,0,0,0], [0,0,0,0,0], [0,0,0,0,0], [0,0,0,0,0]]
+		self.in_tr = False
+		self.in_td = False
+		# there is an extra <td> and <tr> before the ones with the <img> tags, so adding to see if we are in the
+		# correct table so that the count does not mess up. also allows to save shapes
+		self.in_correct_table = False
+		self.count_row = 0
+		self.count_cell = 0
+
+	def handle_starttag(self, tag, attrs):
+		if tag == 'table':
+			cellpadding = int(attrs[1][1])
+			if cellpadding == 0:
+				self.in_correct_table = True
+		elif tag == 'tr':
+			if self.in_correct_table:
+				self.count_row += 1
+				self.in_tr = True
+		elif tag == 'td':
+			if self.in_correct_table:
+				self.count_cell += 1
+				self.in_td = True
+		elif tag == 'img':
+			if self.in_correct_table:		# uneeded I think
+				print("Row {}".format(self.count_row))
+				print("Cell {}".format(self.count_cell))
+				print(self.size)
+				self.size[self.count_row-1][self.count_cell-1] += 1
+
+	def handle_endtag(self, tag):
+		if self.in_correct_table:
+			if tag == 'td':
+				self.in_td = False
+			elif tag == 'tr':
+				self.in_tr = False
+				self.count_cell = 0
+			elif tag == 'table':
+				# save shape
+				self.count_row = 0
+				self.count_cell = 0
 
 # Method for parsing the board, getting the cycle for changing types, and getting all pieces available
 def get_all(infile="C:/Users/andys-pc/Downloads/ShapeShifter.html"):
@@ -41,8 +89,10 @@ def get_all(infile="C:/Users/andys-pc/Downloads/ShapeShifter.html"):
 						line= next(f)
 
 				# 3) Get pieces available
+				if ("<b><big>ACTIVE SHAPE</big></b>" in line):
+					parser = MyHTMLParser()
+					parser.feed(line)
 
-				
 				'''<center><b><big>ACTIVE SHAPE</big></b><p></p>
 
 				<table border="0" cellpadding="15" cellspacing="0" width="50" height="50">
