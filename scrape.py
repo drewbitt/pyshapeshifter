@@ -11,12 +11,16 @@ Overrides MyHTMLParser class methods handle_starttag and handle_endtag
 """
 
 class MyHTMLParser(HTMLParser):
+
 	def __init__(self):
 		HTMLParser.__init__(self)
-		self.size = [[0 for i in range(5)] for j in range(4)]		# max size = 4*5. array top-bottom, left-right
+		self.size = [[0 for _ in range(5)] for _ in range(4)]		# max size = 4*5. array top-bottom, left-right
 		self.in_tr, self.in_td, self.in_correct_table = (False,)*3
 		self.count_row, self.count_cell = 0, 0
 		self.pieces_array = []
+
+	def error(self, message):		# to implement all abstract methods
+		pass
 
 	def get_pieces_array(self):
 		return self.pieces_array
@@ -29,13 +33,15 @@ class MyHTMLParser(HTMLParser):
 				self.in_correct_table = True
 		elif tag == 'tr':
 			if self.in_correct_table:
-				self.count_row += 1
+				self.count_row += 1		# keeps track of what row we are in
 				self.in_tr = True
 		elif tag == 'td':
 			if self.in_correct_table:
 				self.count_cell += 1
 				self.in_td = True
 		elif tag == 'img':
+			# if an img is found, the img = one square block of the shape
+			# keep track of all blocks found in shape by making the found position = 1 in self.size
 			self.size[self.count_row-1][self.count_cell-1] += 1
 
 	def handle_endtag(self, tag):
@@ -50,9 +56,8 @@ class MyHTMLParser(HTMLParser):
 					self.in_correct_table = False
 					# store completed shape, reset shape size & all counts
 					self.pieces_array.append(self.size)
-					self.size = [[0 for i in range(5)] for j in range(4)]
+					self.size = [[0 for _ in range(5)] for _ in range(4)]
 					self.count_row, self.count_cell = 0, 0
-
 
 """Method for parsing the board, getting the cycle for changing types, and getting all pieces available
 All combined so that the file would not be iterated through multiple times
@@ -83,7 +88,7 @@ def get_all(infile):
 						for row in range(num_rows):
 							obj_type = line[line.index('"') + 1: len(line)-2]
 							board_array[row][col] = obj_type
-							line= next(f)
+							line = next(f)
 
 				# 2) Get cycle for changing types
 				# Goal is always second to last
@@ -94,7 +99,7 @@ def get_all(infile):
 							index_r = line.index(".gif")
 							index_l = line[:index_r].rfind("/")
 							cycle_array.append(line[index_l+1:index_r])
-						line= next(f)
+						line = next(f)
 
 				# 3) Get pieces available
 				if "<b><big>ACTIVE SHAPE</big></b>" in line:
