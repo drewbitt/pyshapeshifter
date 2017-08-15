@@ -1,28 +1,31 @@
-''' Scrapes the .html file of the game's page
-Would be great to look into using native HTML scraping/parsing for this, or Javascript'''
+""" File to scrape the .html file of the game's page to get layout, rules, and available shapes
+Could've been done much easier in Javascript, but I was exploring Python
+"""
 
 import sys
 from html.parser import HTMLParser
 
-# using HTMLParser for parsing shapes
+""" Uses HTMLParser for parsing shapes just so I could try it out
+
+Overrides MyHTMLParser class methods handle_starttag and handle_endtag
+"""
 
 class MyHTMLParser(HTMLParser):
 	def __init__(self):
 		HTMLParser.__init__(self)
-		# the max size of a shape is 4x5 so a [4][5] array
-		self.size = [[0,0,0,0,0], [0,0,0,0,0], [0,0,0,0,0], [0,0,0,0,0], [0,0,0,0,0]]
-		self.in_tr = False
-		self.in_td = False
-		# there is an extra <td> and <tr> before the ones with the <img> tags, so adding to see if we are in the
-		# correct table so that the count does not mess up. also allows to save shapes
-		self.in_correct_table = False
-		self.count_row = 0
-		self.count_cell = 0
+		self.size = [[0 for i in range(5)] for j in range(4)]		# max size = 4*5. array top-bottom, left-right
+		self.in_tr, self.in_td, self.in_correct_table = (False,)*3
+		self.count_row, self.count_cell = 0, 0
+		self.pieces_array = []
+
+	def get_pieces_array(self):
+		return self.pieces_array
 
 	def handle_starttag(self, tag, attrs):
 		if tag == 'table':
-			cellpadding = int(attrs[1][1])
-			if cellpadding == 0:
+			cellpadding = int(attrs[1][1])		# assumes cell_padding is always second, border first
+			# there is extra <td> & <tr> in a table b4 useful tags, so checking for correct table
+			if cellpadding == 0:		# incorrect table has cell_padding = 15 from what I've seen
 				self.in_correct_table = True
 		elif tag == 'tr':
 			if self.in_correct_table:
@@ -33,11 +36,7 @@ class MyHTMLParser(HTMLParser):
 				self.count_cell += 1
 				self.in_td = True
 		elif tag == 'img':
-			if self.in_correct_table:		# uneeded I think
-				print("Row {}".format(self.count_row))
-				print("Cell {}".format(self.count_cell))
-				print(self.size)
-				self.size[self.count_row-1][self.count_cell-1] += 1
+			self.size[self.count_row-1][self.count_cell-1] += 1
 
 	def handle_endtag(self, tag):
 		if self.in_correct_table:
@@ -47,21 +46,29 @@ class MyHTMLParser(HTMLParser):
 				self.in_tr = False
 				self.count_cell = 0
 			elif tag == 'table':
-				# save shape
-				self.count_row = 0
-				self.count_cell = 0
+				if self.in_correct_table:
+					self.in_correct_table = False
+					# store completed shape, reset shape size & all counts
+					self.pieces_array.append(self.size)
+					self.size = [[0 for i in range(5)] for j in range(4)]
+					self.count_row, self.count_cell = 0, 0
 
-# Method for parsing the board, getting the cycle for changing types, and getting all pieces available
-def get_all(infile="C:/Users/andys-pc/Downloads/ShapeShifter.html"):
+
+"""Method for parsing the board, getting the cycle for changing types, and getting all pieces available
+All combined so that the file would not be iterated through multiple times
+
+Returns tuple of the board list, cycle list, and shape list"""
+
+def get_all(infile):
 	board_array = []
 	cycle_array = []
 	pieces_array = []
 	try:
 		with open(infile, encoding='utf8') as f:
-			for line in nonblank_lines(f):
+			for line in f:
 				# 1a) Get board array
-				if('imgLocStr = new') in line:
-					# Board is an array. imgLocStr = new Array starts it, gives num rows
+				if'imgLocStr = new' in line:
+					# Board is an array. imgLocStr = new Array starts it, gives # rows
 					num_rows = int(line[line.index("(") + 1:line.index(")")])
 					# next line gives number of columns
 					line = next(f)
@@ -80,69 +87,24 @@ def get_all(infile="C:/Users/andys-pc/Downloads/ShapeShifter.html"):
 
 				# 2) Get cycle for changing types
 				# Goal is always second to last
-				if ('border="1" bordercolor="gray"' in line):
-					while ("gif" in line):
-						if ("arrow" not in line):
+				if 'border="1" bordercolor="gray"' in line:
+					while "gif" in line:
+						# ignore all arrow images
+						if "arrow" not in line:
 							index_r = line.index(".gif")
 							index_l = line[:index_r].rfind("/")
 							cycle_array.append(line[index_l+1:index_r])
 						line= next(f)
 
 				# 3) Get pieces available
-				if ("<b><big>ACTIVE SHAPE</big></b>" in line):
+				if "<b><big>ACTIVE SHAPE</big></b>" in line:
 					parser = MyHTMLParser()
 					parser.feed(line)
+					pieces_array = parser.get_pieces_array()
 
-				'''<center><b><big>ACTIVE SHAPE</big></b><p></p>
-
-				<table border="0" cellpadding="15" cellspacing="0" width="50" height="50">
-				<tbody>
-
-				<tr>	row
-				<td>	cell
-
-				<table border="0" cellpadding="0" cellspacing="0">		start piece
-
-				<tbody>
-
-				<tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td>
-				<td height="10" width="10"></td>
-
-				</tr>		end row - means just one thing is here
-
-				<tr><td>
-
-				<img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td>
-				<td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0">
-				</td>
-
-				</tr>     means two things were here
-
-				<tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td height="10" width="10"></td></tr>
-				</tbody>
-
-				</table>
-
-				</td>
-				</tr>
-				</tbody>
-				</table>
-
-				<br><center><b><big>NEXT SHAPES</big></b><table border="0" cellpadding="15" cellspacing="0" width="50" height="50"><tbody><tr><td align="center" valign="center"><table border="0" cellpadding="0" cellspacing="0"><tbody><tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td height="10" width="10"></td><td height="10" width="10"></td></tr><tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td height="10" width="10"></td></tr><tr><td height="10" width="10"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td></tr></tbody></table></td><td align="center" valign="center"><table border="0" cellpadding="0" cellspacing="0"><tbody><tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td height="10" width="10"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td></tr><tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td></tr><tr><td height="10" width="10"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td height="10" width="10"></td></tr></tbody></table></td><td align="center" valign="center"><table border="0" cellpadding="0" cellspacing="0"><tbody><tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td height="10" width="10"></td></tr><tr><td height="10" width="10"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td height="10" width="10"></td></tr><tr><td height="10" width="10"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td></tr></tbody></table></td><td align="center" valign="center"><table border="0" cellpadding="0" cellspacing="0"><tbody><tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td></tr><tr><td height="10" width="10"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td height="10" width="10"></td></tr></tbody></table></td><td align="center" valign="center"><table border="0" cellpadding="0" cellspacing="0"><tbody><tr><td height="10" width="10"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td></tr><tr><td height="10" width="10"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td height="10" width="10"></td></tr><tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td></tr></tbody></table></td><td align="center" valign="center"><table border="0" cellpadding="0" cellspacing="0"><tbody><tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td></tr><tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td height="10" width="10"></td></tr></tbody></table></td><td align="center" valign="center"><table border="0" cellpadding="0" cellspacing="0"><tbody><tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td></tr></tbody></table></td><td align="center" valign="center"><table border="0" cellpadding="0" cellspacing="0"><tbody><tr><td height="10" width="10"></td><td height="10" width="10"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td></tr><tr><td height="10" width="10"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td></tr><tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td height="10" width="10"></td></tr></tbody></table></td></tr><tr><td align="center" valign="center"><table border="0" cellpadding="0" cellspacing="0"><tbody><tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td></tr><tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td height="10" width="10"></td></tr></tbody></table></td><td align="center" valign="center"><table border="0" cellpadding="0" cellspacing="0"><tbody><tr><td height="10" width="10"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td></tr><tr><td height="10" width="10"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td></tr><tr><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td><img src="./ShapeShifter_files/square.gif" width="10" height="10" border="0"></td><td height="10" width="10"></td></tr></tbody></table></td></tr></tbody></table>  <p align="center">
-				'''
-
-
-	except StopIteration:	# generator running out of values when next() is used. normal. may not be needed
-		pass
+		return (board_array, cycle_array, pieces_array)
 	except (OSError, IOError):		# python 3.3 IOError became OSError & FileNotFoundError is in OSError
-		print("Could not open file to parse board")
-		sys.exit(1)
+		sys.exit("Could not open file to scrape/parse")
 
-# don't need to remove blank lines, just for debugging/readability
-def nonblank_lines(f):
-	for l in f:
-		line = l.rstrip()
-		if line:
-			yield line
-
-get_all()
+if __name__ == '__main__':
+	get_all("C:/Users/andys-pc/Downloads/ShapeShifter.html")		# debugging
