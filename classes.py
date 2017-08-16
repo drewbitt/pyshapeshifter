@@ -132,43 +132,18 @@ class Pieces(list):
 		self.pieces_array = pieces_array
 		self.pieces_array = self.__remove_empty(pieces_array)
 
-	"""Remove all empty rows and columns to get true shape size"""
+	"""Remove all empty (all elements = 0) rows and columns to get true shape size"""
 	def __remove_empty(self, p):
-		for v in p:
-			# 1) Remove all original rows with no shape cells in them
-			v.remove([0,0,0,0,0])
-			# 2a) Remove all columns with no shape cells in them. Checks to see if a 1 is found in any column,
-			# if not, then removes column. Recursive function, and not a good one.
-			def remove_columns_main(numElements):
-				# numElements starts at 5 and (recursively) decreases as each array gets smaller
-				for e in range(numElements):
-					found = False
-					def remove_cols():
-						for i in range(len(v)):
-							if v[i][e] == 1:
-								return True
-					found = remove_cols()
-					if found is False or found is None:
-						for z in range(len(v)):
-							del(v[z][e])
-						return remove_columns_main(numElements-1)		# recursive return
-				return v
-			# 2b) Actually call recursive function and get new array
-			v = remove_columns_main(5)
-
-			# 3a) There will be new empty rows, but don't know size of array so can't just v.remove (will error
-			# if not found). So recursively checks with loop, removes any completely empty rows
-			def remove_new_duplicates(v):
-				for q in v:
-					if all(n == 0 for n in q):		# if all values in list are == 0
-						v.remove(q)			# remove whole list
-						return remove_new_duplicates(v)		# recursive return
-				return v
-			# 3b) Actually call recursive function and get new array
-			v = remove_new_duplicates(v)
-		# Finally, return new pieces array
+		"""Transpose goes through rows and columns. remove_blank_rows removes all rows where all elements eval to False,
+		which 0 does"""
+		def transpose(a):
+			return zip(*a)
+		def remove_blank_rows(a):
+			return [list(row) for row in a if any(row)]
+		for index, i in enumerate(p):
+			i = remove_blank_rows( transpose(remove_blank_rows(transpose(i))))
+			p[index] = i
 		return p
-
 
 b, c, p= scrape.get_all("C:/Users/andys-pc/Downloads/ShapeShifter.html")
 Board(b,c)
