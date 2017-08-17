@@ -21,12 +21,12 @@ class Board(list):		# maybe subclass this as list or object (depending on approa
 		for index, row in enumerate(b):
 			for index2, col in enumerate(row):
 				if col == "swo":
-					col = SwordObj((index, index2))
+					col = SwordObj([index, index2])		# row, col
 				elif col ==  "cro":
-					col = CrownObj((index, index2))
+					col = CrownObj([index, index2])
 				elif col == "gob":
-					col = GobletObj((index, index2))
-				row[index2] = col		# why am I having to do this to get it to save to row? scope issue? enum issue?
+					col = GobletObj([index, index2])
+				row[index2] = col
 		return b
 
 	"""Convert text values of cycle into objects of their own type
@@ -48,8 +48,7 @@ class Board(list):		# maybe subclass this as list or object (depending on approa
 	def get_cycle(self):
 		return self.cycle_array
 
-	"""Returns the goal, which is always the second to last item in cycle array
-	Returns the actual object
+	"""Returns the goal (as an object), which is always the second to last item in cycle array
 	"""
 	def get_goal(self):
 		return self.cycle_array[-2]
@@ -63,19 +62,23 @@ class Board(list):		# maybe subclass this as list or object (depending on approa
 
 	"""Change the type of a single obj. Updates position of new node to old obj's position as well
 	Is used when placing a shape onto the board"""
-	def __change_type(self, piece):
-		name = self.type_dict[piece.name()]
-		name = name + "Obj(piece.get_coord())"
+	def __change_type(self, board_obj):
+		name = self.type_dict[board_obj.name()]
+		name = name + "Obj(board_obj.get_coord())"
 		return eval(name)		# evaluates string to create object
 
-	""" piece is Pieces object, coord is tuple, chk=True means only check and return board after placing,
+	""" coord is a list of all coordinates to change, chk=True means only check and return board after placing,
 	without actually writing to self.board_array.
-
-	If chk = True, returns a new board object after the placement of the shape without altering the original
+	Returns True if it ran sucessfully
 	"""
-
-	def place_shape(self, piece, coord, chk=False):
-		print("Implement later")
+	def place_shape(self, coord, chk=False):
+		board = self.board_array
+		for c in coord:
+			board[c[0]][c[1]] = self.__change_type( board [c[0]][c[1]] )
+		if chk:
+			return board
+		board = self.board_array
+		return True
 
 # --------------Objects
 # Add others later once I get to their levels and figure out their names
@@ -84,7 +87,7 @@ class Board(list):		# maybe subclass this as list or object (depending on approa
 class TypeOfObj(metaclass=abc.ABCMeta):
 
 	# Going to store coordinate to easily look at positions. May not be needed, but shouldn't be harmful.
-	# Store in tuple form i.e (row, col)
+	# Store coord in list
 	def __init__(self, coord=None):
 		self.coord = coord
 
@@ -100,6 +103,7 @@ class TypeOfObj(metaclass=abc.ABCMeta):
 	def print(self):
 		"""Print name of class and coordinate"""
 
+# Unsure if I want each class to actually print the image with .print or just return the filename
 class CrownObj(TypeOfObj):
 	def get_image(self):
 		return("IMAGE GOES HERE")
@@ -125,7 +129,7 @@ TypeOfObj.register(CrownObj)
 TypeOfObj.register(GobletObj)
 TypeOfObj.register(SwordObj)
 # -----------------------------------------------
-
+''' Simple list object of the pieces that slims down the array from extra 0s.'''
 class Pieces(list):
 	def __init__(self, pieces_array):
 		super().__init__()
@@ -145,6 +149,32 @@ class Pieces(list):
 			p[index] = i
 		return p
 
+	def get_piece(self, index, remove=False):
+		if remove:
+			return Piece(self.pieces_array.pop(index))
+		else:
+			return Piece(self.pieces_array[index])
+
+"""Class for an individual piece"""
+class Piece:
+	def __init__(self, layout):
+		self.layout = layout
+
+	def get_layout(self):
+		return self.layout
+
+	"""Will make method that can return image filenames (or print directly) of each block so that the piece
+	 can be easily displayed in GUI
+	 """
+	def print(self):
+		print("IMPLEMENT LATER")
+
+'''
 b, c, p= scrape.get_all("C:/Users/andys-pc/Downloads/ShapeShifter.html")
-Board(b,c)
-Pieces(p)
+bb = Board(b,c)
+pp = Pieces(p)
+
+# first shape is [ [1,0], [1,1], [1,0] ]
+bb.place_shape([ [2,0], [2,1], [3,1], [2,2] ])
+'''
+
