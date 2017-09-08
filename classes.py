@@ -2,12 +2,10 @@
 To Do:
 	* Implement getting the image for each object
 	* Speed fixes
-	* Remove getters/setters
-	* Remove abc & abstract methods
 """
 
-import abc 			# for abstract methods. not really needed but eh
-import scrape		# debug
+import abc 			# not really needed but eh
+# import scrape		# debug
 
 """ Class for the board that contains the board layout (objects in a list), the cycle of how the objects change,
 and the goal. Has method to change the board"""
@@ -49,20 +47,12 @@ class Board(list):		# may not need to be of class list
 			c[index] = i
 		return c
 
-	def get_cycle(self):
-		return self.cycle_array
-
-	def get_goal(self):
-		return self.cycle_array[-2]
-
-	"""Create dictionary of how the object types should change"""
 	def __create_cycle_type_dict(self):
 		cycle_type_dict = {}
 		for index, i in enumerate(self.cycle_array[:-1]):
 			cycle_type_dict[i.name()] = self.cycle_array[index+1].name()
 		return cycle_type_dict
 
-	"""Change the type of a single obj. Updates position of new node"""
 	def __change_type(self, board_obj):
 		name = self.type_dict[board_obj.name()]
 		name += "Obj(board_obj.get_coord())"
@@ -86,10 +76,6 @@ class Board(list):		# may not need to be of class list
 class TypeOfObj(metaclass=abc.ABCMeta):
 	# coord is list [row, col]
 	def __init__(self, coord=None):
-		self.coord = coord
-	def get_coord(self):
-		return self.coord
-	def update_coord(self, coord):
 		self.coord = coord
 	@abc.abstractmethod
 	def get_image(self):
@@ -155,10 +141,6 @@ class Pieces(list):
 class Piece:
 	def __init__(self, layout):
 		self.layout = layout
-
-	def get_layout(self):
-		return self.layout
-
 	def print(self):
 		return "IMPLEMENT LATER"
 
